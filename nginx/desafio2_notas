@@ -1,0 +1,183 @@
+desafio 2:
+1) criar uma imagem nginx: done
+docker run -dit --mount type=bind,source=$(pwd)/html,target=/usr/share/nginx/html --name nginx -p 8080:80 nginx
+docker run -dit --name nginx -p 8080:80 nginx
+http://localhost:8080/ > acessa com o conteudo do html!
+confirmando:
+    docker exec -it nginx bash
+    cd usr/share/nginx/html/ > tem o html
+
+Dockerfile: copiado do github
+docker build -t fredericotakayama/nginx:mk1 .
+docker run -dit --mount type=bind,source=$(pwd)/html,target=/usr/share/nginx/html --name nginx -p 8080:80 fredericotakayama/nginx:mk1
+===========
+3) arrumar o node.js para escutar uma porta
+revendo o video de node:
+docker run --rm -it --mount type=bind,source=$(pwd)/files,target=/usr/src/app --name node -p 3000:3000 node:15 bash
+npm init
+npm install express --save
+touch index.js
+https://stackoverflow.com/questions/66496890/vs-code-nopermissions-filesystemerror-error-eacces-permission-denied
+sudo chown -R node index.js
+
+2) criar container do node.js:
+criar Dockerfile, copiando pasta files para o workdir
+docker build -t fredericotakayama/node:mk1 .
+docker run -dit --name node -p 3000:3000 fredericotakayama/node:mk1 > sem o mount pq se n ele n pega o que copiou
+docker exec -it node bash
+docker push fredericotakayama/node > caso precise subir no docker hub
+
+4) arrumar o nginx para trigar o node.js
+- primeiro criar uma rede e ligar e conectar ambos containers:
+docker network create nodenet
+docker network connect nodenet node
+docker network connect nodenet nginx
+docker network inspect nodenet
+pronto, agora que ambos conhecem a existencia um do outro, como mudar o nginx.conf pra trabalhar com o node.js?
+https://blog.logrocket.com/how-to-run-a-node-js-server-with-nginx/
+
+docker login > só funciona no wsl2 pq o docker login só funciona la
+https://superuser.com/questions/1602401/vscode-terminal-behaves-strangely-when-opening-a-project-that-is-inside-wsl2 
+> resolveu o problema do docker login no vs code do windows
+
+cd nginx
+docker build -t fredericotakayama/nginx:mk2 . -f Dockerfile.prod
+docker run -dit --network nodenet --name nginx -p 8080:80 fredericotakayama/nginx:mk2
+pra ver se esta em pé o webserver:
+    docker logs nginx
+    docker ps
+    docker ps -a
+
+cd node
+docker build -t fredericotakayama/node:mk2 . -f Dockerfile.prod
+docker run -dit --name node -p 3000:3000 fredericotakayama/node:mk2
+docker network connect nodenet node
+ou 
+docker run -dit --network nodenet --name node -p 3000:3000 fredericotakayama/node:mk2
+ 
+5) otimizar com alpine: done
+6) ver a parte do composer
+criar docker-compose.yaml: done
+docker-compose up -d
+o doccker compose gerou outro network, chamado docker_nodenet, e mudou o ip de referencia.
+Atualiando ip no nginx.conf
+docker-compose down
+docker-compose up -d --build
+e mudou de novo, prevendo o proximo ip, e adicionando antes, funciona.. rever essa parte:
+https://www.freecodecamp.org/portuguese/news/como-configurar-um-proxy-reverso-de-modo-facil-e-seguro-com-docker-nginx-e-letsencrypt/
+solução:
+ no nginx.conf adicionar:
+ upstream node {
+    server        node:3000;
+}
+
+server {
+    ...
+    proxy_pass http://node;
+}
+
+dai ele resolver como se fosse um dns;
+
+7) instalando dockerize na build de prod!
+https://github.com/jwilder/dockerize
+no Dockerfile do node, adicionar:
+RUN apt-get update && apt-get install -y wget
+
+ENV DOCKERIZE_VERSION v0.7.0
+RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
+
+#RUN until (apt -y upgrade) do sleep 60; done 
+#RUN apt-get update
+#RUN apt-get install -y wget
+
+#ENV DOCKERIZE_VERSION v0.7.0
+#RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+#    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+#    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
+
+docker build -t fredericotakayama/node:mk3 ./node -f ./node/Dockerfile
+    #6 3.361 E: Failed to fetch http://deb.debian.org/debian/dists/stretch-updates/main/binary-amd64/Packages  404  Not Found
+    #6 3.361 E: Some index files failed to download. They have been ignored, or old ones used instead.
+    https://medium.com/geekculture/2022-w-some-index-files-failed-to-download-they-have-been-ignored-or-old-ones-used-instead-595e9f7345ac
+    solução: RUN until (apt -y upgrade) do sleep 60; done 
+
+docker run -dit --network nodenet --name node -p 3000:3000 --mount type=bind,source=$(pwd)/files,target=/usr/src/app fredericotakayama/node:mk3
+docker run -dit --network nodenet --name node -p 3000:3000 fredericotakayama/node:mk3 > esse n serve pra dev, pq n tem os arquivos de node, ver no docker logs node
+obs.: docker compose up -d --build > esse n serve pq esta apontando pra prod que usa alpine e n tem bash
+docker exec -it node bash
+#dockerize -wait tcp://db:3306 -timeout 50s
+
+atualizado arquivo Dockerfile.prod para incluir o dockerize e copiar na versao alpine de prod:
+docker.io/fredericotakayama/node:mk3
+fredericotakayama/node                mk3       f9e5e093dd08   42 seconds ago      190MB
+docker run -dit --network nodenet --name node -p 3000:3000 fredericotakayama/node:mk3
+
+8) adicionar container do banco de dados: ok 
+    aidicionado a parte do container do db no docker compose file
+    docker compose down
+    docker compose up -d --build
+    docker logs db
+        2023-05-27 21:11:53+00:00 [ERROR] [Entrypoint]: MYSQL_USER="root", MYSQL_USER and MYSQL_PASSWORD are for configuring a regular user and cannot be used for the root user
+        Remove MYSQL_USER="root" and use one of the following to control the root user password:
+        - MYSQL_ROOT_PASSWORD
+        - MYSQL_ALLOW_EMPTY_PASSWORD
+        - MYSQL_RANDOM_ROOT_PASSWORD
+        solução: https://hub.docker.com/_/mysql
+            MYSQL_ROOT_PASSWORD: example > só se usa esse agora
+
+9) gravar algo no banco: * 
+    alterado docker compose file para que o node trabalhe com sistemas de arquivos
+    docker exec -it db bash
+    mysql -uroot -p
+    show databases;
+    use nodedb;
+    create table people(id int not null auto_increment, name varchar(255), primary key(id));
+    desc people;
+
+    dai no container do node:
+    npm install mysql --save
+    dai no arquivo index.js, adiconar:
+        const config = {
+        host: 'db',  // nome do container q tem o mysql
+        user: 'root',
+        password: 'root',
+        database: 'nodedb',
+        };
+        const mysql = require('mysql') // seria o que foi instalado com npm install mysql --save
+        const connection = mysql.createConnection(config)
+
+        const sql = `INSERT INTO people(name) values('Fred')` 
+        connection.query(sql)
+        connection.end()
+    
+    rodar o node index.js
+    dai no terminal do container do db que tem o mysql aberto:
+    select* from people;
+
+    test ok
+
+10) checando dependencia de conexão com o mysql: ok
+dockerize -wait tcp://db:3306
+docker compose down
+docker compose up -d --build
+docker logs node
+magico@DESKTOP-DJGVO3R:~/docker$ docker logs node
+2023/05/27 22:19:23 Waiting for: tcp://db:3306
+2023/05/27 22:19:23 Problem with dial: dial tcp 192.168.208.2:3306: connect: connection refused. Sleeping 1s
+2023/05/27 22:19:24 Connected to tcp://db:3306
+Welcome to Node.js v15.14.0.
+
+11) mostrar o nome cadastrado no retorno do nginx:
+https://stackoverflow.com/questions/31875621/how-to-properly-return-a-result-from-mysql-with-node
+https://www.w3schools.com/nodejs/nodejs_mysql_select.asp
+done, testado via bash e browser
+
+12) voltar o node para o prod: feito
+
+13) testar só com docker compose up e sem o folder do mysql: failed, criou o banco mas sem a tabela people
+precisa enviar junto com o folder mysql no caso
+===========
