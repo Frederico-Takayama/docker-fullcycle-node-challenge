@@ -28,8 +28,8 @@ services:
     entrypoint: dockerize -wait tcp://db:3306 -timeout 20s docker-entrypoint.sh node index.js
     networks: 
       - nodenet
-    ports:
-      - "3000:3000"
+    #ports:
+    #  - "3000:3000"
 
   nginx:
     build: 
