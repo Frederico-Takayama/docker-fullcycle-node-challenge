@@ -9,7 +9,8 @@ services:
     restart: always # inicializa o container caso o mesmo caia
     tty: true # permite entrar no container
     volumes:
-      - ./mysql:/var/lib/mysql # salva td do mysql do container localmente
+      # - ./mysql:/var/lib/mysql # salva td do mysql do container localmente
+      - ./mysql_init:/docker-entrypoint-initdb.d # inicializa um script que tem no mysql_init
     environment:
       - MYSQL_DATABASE=nodedb
       - MYSQL_ROOT_PASSWORD=root

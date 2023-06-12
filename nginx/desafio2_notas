@@ -181,3 +181,73 @@ done, testado via bash e browser
 13) testar só com docker compose up e sem o folder do mysql: failed, criou o banco mas sem a tabela people
 precisa enviar junto com o folder mysql no caso
 ===========
+14) feedback:
+No repositório temos as pastas mysql e node_modules. Não é necessário subir as pastas para o repositório uma vez que dentro do docker-compose estamos espelhando o volume de dentro do contêiner para nossa máquina.
+Também ele ocupa a infra do GitHub e não é considerada uma boa prática.
+Por favor, remova as pastas do projeto e inclua elas no .gitignore então ajuste pra que tudo funcione sem elas no repositório.
+a) remover o mysql: renomeado localmente para mysql_bk
+rodar o projeto: falhou inicialmente:
+docker compose up -d --build
+docker logs node:
+    code: 'ER_NO_SUCH_TABLE',
+    errno: 1146,
+    sqlMessage: "Table 'nodedb.people' doesn't exist",
+ n esta achando o banco.. o docker compose gera o banco, porem n cria a tabela, como fazer?
+ https://stackoverflow.com/questions/49573004/create-tables-on-docker-start
+ https://stackoverflow.com/questions/38713597/create-table-in-postgresql-docker-image/38714511#38714511
+ - criado um script: mysql_init.sql:
+     create table people(id int not null auto_increment, name varchar(255), primary key(id));
+ docker exec -it db bash
+    mysql -uroot -p
+    show databases;
+    use nodedb;
+    show tables;
+    desc people;
+    show columns from people;
+- modificado volumes do container db do docker-compose para:
+    # - ./mysql:/var/lib/mysql # salva td do mysql do container localmente
+      - ./mysql:/docker-entrypoint-initdb.d # inicializa um script que tem no mysql
+- test: ok
+    docker compose up -d --build
+    http://localhost:8080/
+b) remover o .nodefiles do container do node
+    - revendo como fiz
+    - movido a parte de node_modules para uma pasta de backup: node_bk
+    - docker compose down
+    - docker compose up -d --build
+    - docker ps
+    - docker logs node:
+        Cannot find module 'express'
+    ao remover o .nodefile, não encontrou o express. 
+    Para criar o express precisei rodar os comandos:
+        npm init
+        npm install express --save
+        touch index.js
+    Adicionado no dockerfile.prod do node:
+        RUN npm init
+        RUN npm install express --save
+        Ao rodar o compose deu o seguinte erro:
+        => ERROR [fredericotakayama/node:mk3 builder 6/8] RUN npm init   
+        testando:
+            docker run --rm -it --mount type=bind,source=$(pwd)/files,target=/usr/src/app --name node -p 3000:3000 node:15 bash
+    Adicionado no dockerfile.prod do node:
+        RUN npm install express --save > apenas
+        testando:
+            Error: Cannot find module 'mysql' > esta no node_modules
+            faltou npm install mysql --save
+    Adicionado no dockerfile.prod do node:
+        RUN npm install express --save
+        RUN npm install mysql --save
+    testando: agora foi!
+    c) adicionar pastas de node_modules e mysql no gitignore: * 
+        - removendo node_modules do git: ok
+        - movendo o script de inicialização parar um folder mysql_init, para ficar independente do folder mysql que sera removido: ok
+        - arrumado o docker-compose para o novo dir
+        - removendo o mysql do git: ok
+        - adicionado mysql_init no git
+        - retestando: ok, demora um pouco pra carregar o tcp, mas funciona
+        - criar gitignore: ok
+        https://www.freecodecamp.org/portuguese/news/gitignore-explicado-o-que-e-o-gitignore-e-como-adiciona-lo-ao-seu-repositorio/
+        
+
+===========
