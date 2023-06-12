@@ -1,32 +1,23 @@
-FROM node:15 as builder
+FROM node:20 as builder
 
-WORKDIR /usr/src/app
-
-RUN until (apt -y upgrade) do sleep 60; done 
-# RUN apt-get update
-RUN apt-get install -y wget
+# RUN until (apt -y upgrade) do sleep 60; done 
+# # RUN apt-get update
+# RUN apt-get install -y wget
 
 ENV DOCKERIZE_VERSION v0.7.0
 RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
-RUN npm install express --save
-RUN npm install mysql --save
+USER node
 
-COPY ./files .
-
-EXPOSE 3000
-
-# CMD ["node","index.js"]
+WORKDIR /usr/src/app
 
 FROM node:20-alpine3.16
+
+USER node
 
 WORKDIR /usr/src/app
 
 COPY --from=builder /usr/src/app .
 COPY --from=builder /usr/local/bin/dockerize /usr/local/bin/
-
-EXPOSE 3000
-
-CMD ["node","index.js"]

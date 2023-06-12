@@ -9,7 +9,7 @@ services:
     restart: always # inicializa o container caso o mesmo caia
     tty: true # permite entrar no container
     volumes:
-      # - ./mysql:/var/lib/mysql # salva td do mysql do container localmente
+      #- ./mysql:/var/lib/mysql # salva td do mysql do container localmente
       - ./mysql_init:/docker-entrypoint-initdb.d # inicializa um script que tem no mysql_init
     environment:
       - MYSQL_DATABASE=nodedb
@@ -21,12 +21,11 @@ services:
     build:
       context: ./node
       dockerfile: Dockerfile.prod
-    # volumes:
-    #   - ./node/files:/usr/src/app
+    volumes:
+      - ./node/files:/usr/src/app
     tty: true
-    image: fredericotakayama/node:mk3
     container_name: node
-    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s docker-entrypoint.sh node index.js
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 20s sh -c "npm install && node index.js"
     networks: 
       - nodenet
     #ports:
@@ -36,7 +35,6 @@ services:
     build: 
       context: ./nginx
       dockerfile: Dockerfile.prod
-    image: fredericotakayama/nginx:mk2
     container_name: nginx
     networks: 
       - nodenet

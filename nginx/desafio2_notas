@@ -249,5 +249,64 @@ b) remover o .nodefiles do container do node
         - criar gitignore: ok
         https://www.freecodecamp.org/portuguese/news/gitignore-explicado-o-que-e-o-gitignore-e-como-adiciona-lo-ao-seu-repositorio/
         
+    - re-enviado para correção: aguardando
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 60s docker-entrypoint.sh node index.js
+    n estou vendo o dockerizer funcionar:
+    docker exec -it node bash
 
 ===========
+feedback:
+    Tudo está funcionando corretamente, mas um ponto importante que precisamos incluir é o mapeamento de volumes (node), com isso tudo que você atualizar em sua máquina será refletido dentro do container.
+    Caso tenha ficado qualquer dúvida sinta-se a vontade para me chamar no Discord: Lucian Tavares#6961.
+
+    não era pra ter removido o volume, readicionado:
+    volumes:
+      - ./node/files:/usr/src/app
+      test: failed
+        Error: Cannot find module 'express'
+        Require stack:
+        - /usr/src/app/index.js
+    revendo video:    
+        Criando aplicação Node.js sem o Node
+        Gerando imagem da aplicação Node.js
+        Iniciando com Docker-compose
+        Buildando images com Docker-compose
+        Criando banco de dados MySQL
+        Configurando app node com docker-compose
+        Node vs MySQL
+        no video, acabou sendo utilizado o dockerfile que não é o de produção, e tb copiou o node_modules
+    conversado com o suporte: Lucian
+        - removido o docker-entrypoint.sh do entrypoint, n precisa pq a imagem original do node ja faz isso
+        - mantido o volume
+        - removido do Dockerfile.prod
+            RUN npm install express --save
+            RUN npm install mysql --save
+
+            EXPOSE 3000
+
+            # CMD ["node","index.js"]
+        - adicionado 'sh -c "npm install && node index.js"' no entrypoint > assim o npm install passa a ser instalado no container e não na imagem
+        - removido imagens do docker-compose.yaml pra n conflitar com o atributo build
+        - adicionado USER node no Dockerfile.prod de node
+        - removido o ultimo RUN do nginx que era comando do laravel
+        - adicionado RUN usermod -u 1000 mysql no Dockerfile.prod do node pra manter o uid do node no user do mysql
+        - atualizado a versão da imagem do node de 15 para 20 e removido uns RUNs relacionado no Dockerfile.prod do node
+    teste: done
+        docker compose down
+        docker compose up --build
+
+        falhou ao remover o:
+            RUN mkdir /var/www/html -p && touch /var/www/html/index.php
+            removido apenas a parte do "&& touch /var/www/html/index.php"
+        falhou ao setar o user do mysql
+            usermod -u 1000 mysql
+        diz que o usuario n existe durante a geração da imagem, mudando para o .yaml
+        mas a minha imagem do dockerfile.prod n encontra o comando usermod, removi essa parte
+===========    
+    extras:
+    tutorial: https://www.docker.com/blog/how-to-dockerize-your-python-applications/
+    https://medium.com/@marcelorlima/how-to-easily-make-your-container-waits-for-another-one-to-get-up-with-dockerize-be392e4e8e23
+===========    
+    
+    
+
