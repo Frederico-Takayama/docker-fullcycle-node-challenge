@@ -298,10 +298,19 @@ feedback:
         falhou ao remover o:
             RUN mkdir /var/www/html -p && touch /var/www/html/index.php
             removido apenas a parte do "&& touch /var/www/html/index.php"
+            solução: limpado o nginx.conf
         falhou ao setar o user do mysql
             usermod -u 1000 mysql
-        diz que o usuario n existe durante a geração da imagem, mudando para o .yaml
-        mas a minha imagem do dockerfile.prod n encontra o comando usermod, removi essa parte
+            diz que o usuario n existe durante a geração da imagem, mudando para o .yaml
+            mas a minha imagem do dockerfile.prod n encontra o comando usermod, removi essa parte
+            solução: criado um dockerfile para o mysql e adicionado o comando de alteração do id nele
+        - removido a rede pq não precisa declarar uma rede interna atualmente
+
+    novo teste:
+        magico@DESKTOP-DJGVO3R:~/docker$ docker exec -it db bash
+        bash-4.2$ id
+        uid=1000(mysql) gid=999(mysql) groups=999(mysql)
+        passed
 ===========    
     extras:
     tutorial: https://www.docker.com/blog/how-to-dockerize-your-python-applications/

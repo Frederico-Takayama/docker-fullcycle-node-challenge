@@ -3,7 +3,9 @@ version: '3'
 services:
 
   db:
-    image: mysql:5.7
+    build:
+      context: ./mysql_init
+      dockerfile: Dockerfile.prod
     command: --innodb-use-native-aio=0 # dica do video do fullcycle pra rodar o container do mysql
     container_name: db
     restart: always # inicializa o container caso o mesmo caia
@@ -14,8 +16,6 @@ services:
     environment:
       - MYSQL_DATABASE=nodedb
       - MYSQL_ROOT_PASSWORD=root
-    networks:
-      - nodenet
 
   node:
     build:
@@ -26,23 +26,13 @@ services:
     tty: true
     container_name: node
     entrypoint: dockerize -wait tcp://db:3306 -timeout 20s sh -c "npm install && node index.js"
-    networks: 
-      - nodenet
-    #ports:
-    #  - "3000:3000"
 
   nginx:
     build: 
       context: ./nginx
       dockerfile: Dockerfile.prod
     container_name: nginx
-    networks: 
-      - nodenet
     ports:
       - "8080:80"
     depends_on:
       - node
-
-networks:
-  nodenet:
-    driver: bridge
